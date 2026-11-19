@@ -38,8 +38,10 @@ use cap_fs_ext::{OpenOptionsFollowExt as _, OpenOptionsSyncExt as _};
 use cap_primitives::ambient_authority;
 use cap_primitives::fs::{
     FollowSymlinks, Metadata as CapabilityMetadata, OpenOptions, open, open_ambient,
-    open_ambient_dir, read_base_dir, stat,
+    read_base_dir, stat,
 };
+#[cfg(not(windows))]
+use cap_primitives::fs::open_ambient_dir;
 #[cfg(windows)]
 use cap_primitives::fs::MetadataExt as _;
 use same_file::Handle;
@@ -176,6 +178,14 @@ impl WorkspaceExplorer {
             return Err(WorkspaceError::InvalidPath);
         }
         // 先绑定权限再解析名称，防止 canonicalize 与打开之间替换根。
+        #[cfg(windows)]
+        let bound = {
+            let mut options = directory_options();
+            // 保留首次绑定时跟随链接的语义，同时允许 Windows 目录重命名。
+            options.follow(FollowSymlinks::Yes);
+            open_ambient(root, &options, ambient_authority()).map_err(map_io)?
+        };
+        #[cfg(not(windows))]
         let bound = open_ambient_dir(root, ambient_authority()).map_err(map_io)?;
         check_directory(&bound)?;
         after_binding();

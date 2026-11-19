@@ -13,6 +13,7 @@
 //! 只跑某个文件的用例：`cargo test -p codex-plus-core --test all relay_config::`
 
 mod common;
+mod workspace_explorer;
 
 mod ads;
 mod agent_collaboration;

@@ -13,7 +13,7 @@
     {
       "name": "10-style.js",
       "description": "样式注入、默认设置、后端设置映射、梦皮主题变量与持久化",
-      "lines": 3572
+      "lines": 3594
     },
     {
       "name": "20-menu.js",
@@ -241,9 +241,14 @@
       "lines": 480
     },
     {
+      "name": "96-workspace-explorer.js",
+      "description": "默认关闭的独立只读工作目录文件栏与文本预览",
+      "lines": 282
+    },
+    {
       "name": "96-builtin-extensions.js",
       "description": "内置拓展：自带功能挂到拓展内核（可停用、可被 replaces 顶替）、多开身份提示、会话标题中间件",
-      "lines": 444
+      "lines": 445
     },
     {
       "name": "96-paste-fix.js",
@@ -263,7 +268,7 @@
     {
       "name": "98-scan-schedule.js",
       "description": "扫描相关性判定与调度，启动重试",
-      "lines": 183
+      "lines": 189
     },
     {
       "name": "98-avatar-overlay-layout.js",
@@ -273,7 +278,7 @@
     {
       "name": "99-startup.js",
       "description": "启动序列：resize 处理、MutationObserver 与事件绑定",
-      "lines": 45
+      "lines": 49
     },
     {
       "name": "99-tail.js",

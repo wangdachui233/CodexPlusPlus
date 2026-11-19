@@ -5,6 +5,8 @@
 
 // Plain strings: t("中文") -> EN_PLAIN["中文"].
 export const EN_PLAIN: Record<string, string> = {
+  "只读文件树": "Read-only file tree",
+  "在会话栏与聊天之间显示当前本地会话的工作目录；按需展开和只读预览文本，默认关闭。": "Show the current local session's working directory between the session sidebar and chat, with on-demand expansion and read-only text previews. Disabled by default.",
   "多个 Agent 安装": "Installed in multiple agents",
   "仅保留本地版本，不再跟随 GitHub 更新？": "Keep this as a local version and stop receiving GitHub updates?",
   "仅本地管理": "Manage locally",

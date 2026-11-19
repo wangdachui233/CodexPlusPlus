@@ -646,6 +646,15 @@ pub async fn handle_bridge_request(
         // 拓展自己调模型（ctx.llm）：经协议代理用当前供应商，不跑拓展网关中间件。
         "/extensions/llm/complete" => crate::extension_llm::route_complete(&payload).await,
         "/extensions/llm/models" => crate::extension_llm::route_models(),
+        // 内部只读文件树，不加入第三方拓展白名单。
+        "/workspace-explorer/list" | "/workspace-explorer/preview" => {
+            let payload = payload.clone();
+            let preview = path == "/workspace-explorer/preview";
+            tokio::task::spawn_blocking(move || crate::workspace_explorer::route(&payload, preview))
+                .await
+                .map_err(|_| anyhow::anyhow!("internal_error: 工作区读取任务失败"))
+                .and_then(|result| result.map_err(anyhow::Error::from))
+        }
         "/extensions/history" => {
             let payload = payload.clone();
             tokio::task::spawn_blocking(move || crate::extension_history::route(&payload))
@@ -948,7 +957,13 @@ pub async fn handle_bridge_request(
     };
 
     let response = result.unwrap_or_else(|error| {
-        if matches!(path, "/dictation/transcribe" | "/dictation/cancel") {
+        if matches!(path, "/workspace-explorer/list" | "/workspace-explorer/preview") {
+            let code = error.downcast_ref::<crate::workspace_explorer::WorkspaceError>()
+                .map(|error| error.code()).unwrap_or("internal_error");
+            let mut response = failed_from_error(&payload, error);
+            response["code"] = json!(code);
+            response
+        } else if matches!(path, "/dictation/transcribe" | "/dictation/cancel") {
             failed_from_error(&Value::Null, error)
         } else {
             failed_from_error(&payload, error)

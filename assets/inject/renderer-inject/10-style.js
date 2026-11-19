@@ -6,6 +6,28 @@
   function installStyle() {
     if (!installStyle.sheet) {
       const text = `
+      .codex-plus-workspace-explorer { width:260px; flex:0 0 260px; min-height:0; display:flex; flex-direction:column; overflow:hidden; color:var(--color-text-primary,#ececec); background:var(--color-surface-primary,#202020); border-right:1px solid var(--color-border-primary,rgba(128,128,128,.25)); font-size:13px; }
+      .codex-plus-workspace-explorer[data-modern="true"] { margin-top:8px; }
+      .codex-plus-workspace-explorer[data-collapsed="true"] { width:40px; flex-basis:40px; }
+      .codex-plus-workspace-explorer[data-collapsed="true"] .codex-plus-explorer-tree,
+      .codex-plus-workspace-explorer[data-collapsed="true"] header > :not(:last-child) { display:none; }
+      .codex-plus-workspace-explorer[data-collapsed="true"] header { padding:6px; }
+      .codex-plus-workspace-explorer[data-collapsed="true"] header button { writing-mode:vertical-rl; padding:6px; }
+      .codex-plus-explorer-header { display:flex; align-items:center; gap:6px; padding:8px; flex:none; }
+      .codex-plus-explorer-header strong { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+      .codex-plus-explorer-button { color:inherit; background:transparent; border:0; border-radius:6px; padding:5px 8px; text-align:left; cursor:pointer; font:inherit; }
+      .codex-plus-explorer-button:hover { background:var(--color-token-list-hover-background,rgba(128,128,128,.15)); }
+      .codex-plus-explorer-button:focus-visible { outline:2px solid var(--color-text-primary,#888); outline-offset:-2px; }
+      .codex-plus-explorer-button:disabled { cursor:default; color:var(--color-text-tertiary,#999); }
+      .codex-plus-explorer-tree { overflow:auto; min-height:0; flex:1; }
+      .codex-plus-explorer-tree > button { display:block; width:100%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+      .codex-plus-explorer-notice { color:var(--color-text-tertiary,#999); padding:8px; margin:0; font-size:12px; }
+      .codex-plus-explorer-overlay { position:fixed; inset:0; z-index:2147483000; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,.35); color:var(--color-text-primary,#ececec); }
+      .codex-plus-explorer-preview { display:flex; flex-direction:column; width:min(1000px,90vw); max-height:85vh; min-height:160px; overflow:hidden; border-radius:12px; background:var(--color-surface-elevated-secondary,#252525); box-shadow:var(--shadow-dropdown-overlay,0 8px 32px rgba(0,0,0,.3)); }
+      .codex-plus-explorer-text { display:flex; overflow:auto; min-height:0; padding:8px; }
+      .codex-plus-explorer-text pre { margin:0; font:12px/1.6 ui-monospace,SFMono-Regular,Consolas,monospace; tab-size:4; white-space:pre; }
+      .codex-plus-explorer-line-numbers { color:var(--color-text-tertiary,#999); text-align:right; padding-right:16px; user-select:none; }
+      .codex-plus-explorer-source { flex:1; }
       .${actionGroupClass} {
         position: absolute;
         right: var(--codex-session-actions-right, 28px);

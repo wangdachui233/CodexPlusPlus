@@ -71,6 +71,12 @@
   function shouldScheduleScan(mutations) {
     if (!mutations) return true;
     return mutations.some((mutation) => {
+      // 只修复被原生布局移除的文件栏；插入和内部渲染仍走自有节点过滤。
+      if (typeof codexPlusBackendSettings !== "undefined" && codexPlusBackendSettings.codexAppWorkspaceExplorerEnabled === true) {
+        if ([...mutation.addedNodes, ...mutation.removedNodes].some((node) => !isExtensionUiNode(node) && (node.matches?.('main.main-surface, [data-app-shell-workspace-row], [data-above-composer-conversation-id]') || node.querySelector?.('main.main-surface, [data-app-shell-workspace-row], [data-above-composer-conversation-id]')))) return true;
+        if (mutation.type === "attributes" && ["data-app-shell-active-page", "data-app-action-sidebar-thread-active", "data-above-composer-conversation-id", "data-response-annotation-conversation"].includes(mutation.attributeName)) return true;
+        if ([...mutation.removedNodes].some((node) => !node.isConnected && (node.matches?.('.codex-plus-workspace-explorer') || node.querySelector?.('.codex-plus-workspace-explorer')))) return true;
+      }
       if (isChatContentMutation(mutation)) return false;
       const target = mutation.target;
       if (isExtensionUiNode(target)) return false;

@@ -138,6 +138,7 @@ pub mod watcher;
 pub mod whale;
 pub mod whale_full;
 pub mod work_view;
+pub mod workspace_explorer;
 pub mod wsl_network;
 pub(crate) mod xai_responses;
 // 不加 `#[cfg(windows)]`：模块内部各项已各自标注平台门控，在非 Windows 平台上

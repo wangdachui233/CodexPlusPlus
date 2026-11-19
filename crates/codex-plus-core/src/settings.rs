@@ -1245,6 +1245,8 @@ pub struct BackendSettings {
     pub codex_app_conversation_view: bool,
     #[serde(rename = "codexAppThreadScrollRestore", default = "default_true")]
     pub codex_app_thread_scroll_restore: bool,
+    #[serde(rename = "codexAppWorkspaceExplorerEnabled", default)]
+    pub codex_app_workspace_explorer_enabled: bool,
     #[serde(rename = "codexAppHistoryTurnRecovery", default)]
     pub codex_app_history_turn_recovery: bool,
     #[serde(rename = "codexAppNativeMenuPlacement", default = "default_true")]
@@ -1597,6 +1599,7 @@ impl Default for BackendSettings {
             codex_app_thread_id_badge: false,
             codex_app_conversation_view: false,
             codex_app_thread_scroll_restore: true,
+            codex_app_workspace_explorer_enabled: false,
             codex_app_history_turn_recovery: false,
             codex_app_native_menu_placement: true,
             codex_app_native_browser_require_identification: false,

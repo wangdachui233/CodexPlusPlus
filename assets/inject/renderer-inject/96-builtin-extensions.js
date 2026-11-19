@@ -31,6 +31,7 @@
     return [
       // Agent 桌宠（含大肥鱼）、用量状态栏、请求状态条已改成随 Codex++ 发布的官方拓展包（bundled:agent-pet、
       // bundled:usage-statusline、bundled:proxy-request-status），不再是内置拓展。
+      { id: "workspace-explorer", name: "只读文件树", apply: codexPlusWorkspaceExplorerExtension },
       { id: "dictation", name: "语音听写", apply: codexPlusDictationExtension },
       { id: "feature-lab", name: "Feature Lab", apply: codexPlusFeatureLabExtension },
       { id: "hooks-editor", name: "Hooks 编辑器", apply: codexPlusHooksEditorExtension },

@@ -2,6 +2,203 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { readFile, readdir } from "node:fs/promises";
 
+describe("workspace explorer contracts", () => {
+  const fragment = () => readFile(new URL("../../../assets/inject/renderer-inject/96-workspace-explorer.js", import.meta.url), "utf8");
+  it("defaults off and keeps private routes out of the extension whitelist", async () => {
+    const source = await fragment();
+    assert.match(source, /codexAppWorkspaceExplorerEnabled === true/);
+    const api = await readFile(new URL("../../../assets/inject/renderer-inject/91-extension-api.js", import.meta.url), "utf8");
+    assert.doesNotMatch(api, /\/workspace-explorer\//);
+  });
+  it("invalidates list requests on session switch, refresh and disposal", async () => {
+    const source = await fragment();
+    const create = new Function(`${source}; return codexPlusWorkspaceExplorerState;`)();
+    const state = create();
+    state.reset("session-a");
+    const first = state.generation;
+    state.reset("session-b");
+    assert.notEqual(first, state.generation);
+    assert.equal(state.sessionId, "session-b");
+    state.nodes.set("file", {});
+    state.rootToken = "old-root";
+    state.reset("session-b");
+    assert.equal(state.nodes.size, 0);
+    assert.equal(state.rootToken, null);
+    const refresh = state.generation;
+    state.reset("");
+    assert.notEqual(refresh, state.generation);
+    assert.equal(state.sessionId, "");
+  });
+  it("closing a preview invalidates pending responses independently", async () => {
+    const source = await fragment();
+    const create = new Function(`${source}; return codexPlusWorkspaceExplorerState;`)();
+    const state = create();
+    const pending = ++state.previewGeneration;
+    state.closePreview();
+    assert.notEqual(pending, state.previewGeneration);
+    assert.equal(state.generation, 0);
+  });
+  async function explorerRuntime(enabled = true) {
+    class Node {
+      children: Node[] = [];
+      parentElement: Node | null = null;
+      dataset: Record<string, string> = {};
+      style: Record<string, string> = {};
+      textContent = "";
+      className = "";
+      listeners = new Map<string, (event: unknown) => void>();
+      get isConnected(): boolean { return this === body || !!this.parentElement?.isConnected; }
+      get nextElementSibling() { return this.parentElement?.children[this.parentElement.children.indexOf(this) + 1]; }
+      setAttribute() {}
+      addEventListener(name: string, callback: (event: unknown) => void) { this.listeners.set(name, callback); }
+      append(...nodes: Node[]) { for (const node of nodes) { node.remove(); node.parentElement = this; this.children.push(node); } }
+      insertBefore(node: Node, before: Node) { node.remove(); node.parentElement = this; this.children.splice(this.children.indexOf(before), 0, node); }
+      remove() { if (this.parentElement) this.parentElement.children.splice(this.parentElement.children.indexOf(this), 1); this.parentElement = null; }
+      replaceChildren(...nodes: Node[]) { for (const child of [...this.children]) child.remove(); this.append(...nodes); }
+      focus() { document.activeElement = this; }
+      click() { this.listeners.get("click")?.({ currentTarget: this }); }
+    }
+    const body = new Node(), parent = new Node(), main = new Node();
+    body.append(parent); parent.append(main);
+    const document = { body, activeElement: null as Node | null, createElement: () => new Node() };
+    const pending: { route: string; body: Record<string, unknown>; resolve: (result: unknown) => void }[] = [];
+    const window = { __codexSessionDeleteBridge: (route: string, body: Record<string, unknown>) => new Promise((resolve) => pending.push({ route, body, resolve })) };
+    const settings = { enhancementsEnabled: true, codexAppWorkspaceExplorerEnabled: enabled };
+    let session = "session-a";
+    const scans: (() => void)[] = [], cleanups: (() => void)[] = [];
+    const events = new Map<string, (event: { key: string; preventDefault: () => void; stopImmediatePropagation: () => void }) => void>();
+    const source = await fragment();
+    new Function("document", "window", "codexPlusBackendSettings", "mount", "session", "ctx", `${source};
+      codexPlusWorkspaceExplorerMount = mount;
+      codexPlusWorkspaceExplorerSession = session;
+      codexPlusWorkspaceExplorerExtension(ctx);`)(document, window, settings, () => ({ parent, before: main, main, modern: true }), () => session, {
+      onScan: (callback: () => void) => scans.push(callback), on: () => {},
+      listen: (_: unknown, name: string, callback: typeof events extends Map<string, infer V> ? V : never) => events.set(name, callback),
+      effect: (callback: () => () => void) => cleanups.push(callback()),
+    });
+    const panel = () => parent.children.find((node) => node !== main)!;
+    return { body, parent, main, document, pending, settings, panel,
+      sync: () => scans[0](), switchSession: (id: string) => { session = id; scans[0](); },
+      dispose: () => cleanups.forEach((callback) => callback()),
+      escape: () => events.get("keydown")?.({ key: "Escape", preventDefault() {}, stopImmediatePropagation() {} }),
+      flush: async () => { await Promise.resolve(); await Promise.resolve(); await Promise.resolve(); },
+    };
+  }
+  it("mounts once, ignores old lists after switch/refresh, and cleans up on disposal", async () => {
+    const api = await explorerRuntime();
+    const panel = api.panel();
+    api.sync(); api.sync();
+    assert.equal(api.parent.children.length, 2);
+    assert.equal(api.pending.length, 1);
+    api.switchSession("session-b");
+    api.pending[0].resolve({ rootToken: "root-a", items: [{ name: "old", path: "old", kind: "file" }], nextCursor: null });
+    await api.flush();
+    assert.ok(!panel.children[1].children.some((node) => node.textContent === "old"));
+    panel.children[0].children[1].click();
+    assert.equal(api.pending.length, 3);
+    api.pending[1].resolve({ rootToken: "root-a", items: [{ name: "stale", path: "stale", kind: "file" }], nextCursor: null });
+    api.pending[2].resolve({ rootToken: "root-a", items: [{ name: "fresh", path: "fresh", kind: "file" }], nextCursor: null });
+    await api.flush();
+    assert.ok(panel.children[1].children.some((node) => node.textContent === "fresh"));
+    assert.ok(!panel.children[1].children.some((node) => node.textContent === "stale"));
+    panel.remove(); api.sync();
+    assert.equal(api.panel(), panel);
+    api.dispose();
+    assert.equal(api.parent.children.length, 1);
+    api.sync();
+    assert.equal(api.parent.children.length, 1);
+  });
+  it("does not mount or read directories while disabled", async () => {
+    const api = await explorerRuntime(false);
+    api.sync();
+    assert.equal(api.pending.length, 0);
+    assert.equal(api.parent.children.length, 1);
+    api.dispose();
+  });
+  it("does not reopen a closed preview when its request finishes", async () => {
+    const api = await explorerRuntime();
+    api.pending[0].resolve({ rootToken: "root-a", items: [{ name: "file", path: "file", kind: "file" }], nextCursor: null });
+    await api.flush();
+    const trigger = api.panel().children[1].children[0];
+    trigger.click();
+    assert.equal(api.body.children.length, 2);
+    api.escape();
+    assert.equal(api.document.activeElement, trigger);
+    api.pending[1].resolve({ path: "file", text: "<script>not executed</script>", truncated: false });
+    await api.flush();
+    assert.equal(api.body.children.length, 1);
+    api.dispose();
+  });
+  it("binds root tokens to pagination, child lists and previews until refresh", async () => {
+    const api = await explorerRuntime();
+    assert.equal(Object.hasOwn(api.pending[0].body, "rootToken"), false);
+    api.pending[0].resolve({ rootToken: "bound-root", items: [{ name: "dir", path: "dir", kind: "directory" }, { name: "file", path: "file", kind: "file" }], nextCursor: 2, truncated: false });
+    await api.flush();
+    const tree = api.panel().children[1];
+    assert.ok(!tree.children.some((node) => node.textContent.includes("已截断")));
+    tree.children.find((node) => node.textContent === "加载更多")!.click();
+    assert.equal(api.pending[1].body.rootToken, "bound-root");
+    api.pending[1].resolve({ rootToken: "bound-root", items: [], nextCursor: null, truncated: false });
+    await api.flush();
+    tree.children[0].click();
+    assert.equal(api.pending[2].body.path, "dir");
+    assert.equal(api.pending[2].body.rootToken, "bound-root");
+    api.pending[2].resolve({ rootToken: "bound-root", items: [], nextCursor: null, truncated: false });
+    await api.flush();
+    tree.children.find((node) => node.textContent === "file")!.click();
+    assert.equal(api.pending[3].body.rootToken, "bound-root");
+    api.pending[3].resolve({ status: "failed", message: "工作目录已变化", code: "ROOT_CHANGED" });
+    await api.flush();
+    assert.match(api.body.children[1].children[0].children[1].children[0].textContent, /刷新/);
+    api.panel().children[0].children[1].click();
+    assert.equal(Object.hasOwn(api.pending[4].body, "rootToken"), false);
+    api.dispose();
+  });
+  it("shows failed list responses as errors and allows retry", async () => {
+    const api = await explorerRuntime();
+    api.pending[0].resolve({ status: "failed", message: "目录不可读取", code: "READ_FAILED" });
+    await api.flush();
+    const tree = api.panel().children[1];
+    assert.equal(tree.children[0].textContent, "无法读取：目录不可读取；请刷新文件栏后重试。");
+    assert.equal(tree.children[1].textContent, "重试");
+    tree.children[1].click();
+    assert.equal(api.pending.length, 2);
+    assert.equal(api.pending[1].route, "/workspace-explorer/list");
+    api.pending[1].resolve({ rootToken: "root-a", items: [], nextCursor: null, truncated: false });
+    await api.flush();
+    assert.equal(tree.children[0].textContent, "空目录");
+    api.dispose();
+  });
+  it("shows failed preview responses as errors and allows retry", async () => {
+    const api = await explorerRuntime();
+    api.pending[0].resolve({ rootToken: "root-a", items: [{ name: "file", path: "file", kind: "file" }], nextCursor: null });
+    await api.flush();
+    api.panel().children[1].children[0].click();
+    api.pending[1].resolve({ status: "failed", message: "文件不可预览", code: "PREVIEW_FAILED" });
+    await api.flush();
+    const content = api.body.children[1].children[0].children[1];
+    assert.equal(content.children[0].textContent, "无法预览：文件不可预览；请刷新文件栏后重试。");
+    assert.equal(content.children[1].textContent, "重试");
+    content.children[1].click();
+    assert.equal(api.pending.length, 3);
+    assert.equal(api.pending[2].route, "/workspace-explorer/preview");
+    api.pending[2].resolve({ path: "file", text: "retried", truncated: false });
+    await api.flush();
+    assert.equal(api.body.children[1].children[0].children[1].children[1].textContent, "retried");
+    api.dispose();
+  });
+  it("mounts idempotently and registers teardown through the extension lifecycle", async () => {
+    const source = await fragment();
+    assert.match(source, /panel\.parentElement !== mount\.parent/);
+    assert.match(source, /ctx\.onScan\(sync/);
+    assert.match(source, /ctx\.effect\(\(\) => \(\) =>/);
+    assert.match(source, /data-app-shell-active-page="false"/);
+    assert.match(source, /MAX_NODES = 10000/);
+    assert.match(source, /MAX_DEPTH = 128/);
+    assert.doesNotMatch(source, /innerHTML|registerSidePanel|ctx\.request/);
+  });
+});
+
 describe("session more menu lifecycle", () => {
   async function runtime() {
     const source = await readFile(

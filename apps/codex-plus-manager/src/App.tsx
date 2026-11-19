@@ -593,6 +593,7 @@ export type BackendSettings = WhaleBalanceSettings & {
   codexAppThreadIdBadge: boolean;
   codexAppConversationView: boolean;
   codexAppThreadScrollRestore: boolean;
+  codexAppWorkspaceExplorerEnabled: boolean;
   codexAppHistoryTurnRecovery: boolean;
   codexAppNativeMenuPlacement: boolean;
   codexAppNativeBrowserRequireIdentification: boolean;
@@ -1683,6 +1684,7 @@ const defaultSettings: BackendSettings = {
   codexAppThreadIdBadge: false,
   codexAppConversationView: false,
   codexAppThreadScrollRestore: true,
+  codexAppWorkspaceExplorerEnabled: false,
   codexAppHistoryTurnRecovery: false,
   codexAppNativeMenuPlacement: true,
   codexAppNativeBrowserRequireIdentification: false,

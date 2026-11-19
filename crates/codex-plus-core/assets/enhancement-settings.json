@@ -57,6 +57,15 @@
   ],
   "items": [
     {
+      "key": "codexAppWorkspaceExplorerEnabled",
+      "builtin": "workspace-explorer",
+      "group": "appearance",
+      "control": "bool",
+      "title": "只读文件树",
+      "description": "在会话栏与聊天之间显示当前本地会话的工作目录；按需展开和只读预览文本，默认关闭。",
+      "surfaces": ["codex"]
+    },
+    {
       "key": "enhancementsEnabled",
       "group": "core",
       "control": "bool",

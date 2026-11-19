@@ -3088,9 +3088,33 @@ fn injection_script_guards_temporary_new_thread_ids_before_delete() {
     assert!(script.contains("return deleteUncreatedSession(row, button);"));
     assert!(script.contains("function uncreatedSessionActionFromRow(row)"));
     // 会话切换后历史容器上的 conversation id 也会变，观察器要跟着重扫（#3126 的阅读位置对齐）。
-    assert!(script.contains(
-        "attributeFilter: [\"data-app-action-sidebar-thread-id\", \"href\", \"data-above-composer-conversation-id\"]"
-    ));
+    let observer_options = script
+        .split_once("window.__codexSessionDeleteObserver.observe(")
+        .expect("session delete observer should be installed")
+        .1
+        .split_once("});")
+        .expect("observer options should be closed")
+        .0;
+    let attribute_filter = observer_options
+        .split_once("attributeFilter:")
+        .expect("observer should filter attribute changes")
+        .1;
+    let filter_start = attribute_filter.find('[').expect("attribute filter array");
+    let filter_end = attribute_filter.find(']').expect("attribute filter array end");
+    let attributes: Vec<String> =
+        serde_json::from_str(&attribute_filter[filter_start..=filter_end])
+            .expect("attribute filter should contain string attributes");
+    // 只约束必需属性，允许其他功能扩充同一观察器的监听范围。
+    for required in [
+        "data-app-action-sidebar-thread-id",
+        "href",
+        "data-above-composer-conversation-id",
+    ] {
+        assert!(
+            attributes.iter().any(|attribute| attribute == required),
+            "session delete observer should watch {required}"
+        );
+    }
 
     let cases = run_session_ref_contract_harness();
     assert_eq!(

@@ -26,6 +26,32 @@ fn workspace_explorer_setting_defaults_off_and_survives_serde_round_trip() {
 }
 
 #[test]
+fn workspace_explorer_setting_survives_partial_updates() {
+    use codex_plus_core::settings::{BackendSettings, SettingsStore};
+
+    let temp = TempDir::new().unwrap();
+    let path = temp.path().join("settings.json");
+    let store = SettingsStore::new(path.clone());
+    store.save(&BackendSettings::default()).unwrap();
+
+    for enabled in [true, false] {
+        let updated = store
+            .update(json!({ "codexAppWorkspaceExplorerEnabled": enabled }))
+            .unwrap();
+        assert_eq!(updated.codex_app_workspace_explorer_enabled, enabled);
+        assert_eq!(store.load().unwrap().codex_app_workspace_explorer_enabled, enabled);
+        let raw: serde_json::Value =
+            serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
+        assert_eq!(raw["codexAppWorkspaceExplorerEnabled"], json!(enabled));
+
+        // 无关设置的部分更新不能覆盖文件树开关。
+        let updated = store.update(json!({ "codexAppPasteFix": false })).unwrap();
+        assert_eq!(updated.codex_app_workspace_explorer_enabled, enabled);
+        assert_eq!(store.load().unwrap().codex_app_workspace_explorer_enabled, enabled);
+    }
+}
+
+#[test]
 fn lists_directories_first_with_nested_paths_pages_and_empty_directories() {
     let root = TempDir::new().unwrap();
     fs::create_dir(root.path().join("z-dir")).unwrap();
